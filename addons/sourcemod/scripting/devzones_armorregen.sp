@@ -65,7 +65,7 @@ public void Zone_OnClientLeave(int client, const char[] zone)
 		}
 		if (GetClientArmor(client) > ConVar_Regen_Maxarmor.IntValue)
 		{
-			SetEntityHealth(client, ConVar_Regen_Maxarmor.IntValue);
+			SetEntProp(client, Prop_Send, "m_ArmorValue", ConVar_Regen_armor.IntValue, 1);
 		}
 	}
 }
@@ -74,7 +74,7 @@ public Action Timer_Regen(Handle timer, any client)
 {
 	if (GetClientArmor(client) > ConVar_Regen_Maxarmor.IntValue)
 	{
-		SetEntityHealth(client, ConVar_Regen_Maxarmor.IntValue);
+		SetEntProp(client, Prop_Send, "m_ArmorValue", ConVar_Regen_armor.IntValue, 1);
 		return Plugin_Stop;
 	}
 	int armor = GetClientArmor(client);
