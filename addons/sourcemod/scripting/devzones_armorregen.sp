@@ -1,87 +1,67 @@
 #include <sourcemod>
-#include <sdktools>
-#include <cstrike>
-#include <sdkhooks>
-#include <multicolors>
 #include <devzones>
-#include <warden>
 
 #pragma semicolon 1
 #pragma newdecls required
 
-ConVar ConVar_Regen_armor, ConVar_Regen_Timer, ConVar_Regen_Maxarmor, ConVar_Regen_Helmet;
-
-Handle Handle_armorRegenC_T[MAXPLAYERS + 1];
+ConVar RegenArmor, RegenTime, RegenMaxArmor;
 
 public Plugin myinfo = 
 {
-	name = "SM DEV ZONES - Armor Regen",
-	author = "ByDexter",
-	description = "",
-	version = "1.0",
+	name = "SM DEV ZONES - Armor Regen", 
+	author = "ByDexter", 
+	description = "", 
+	version = "1.1", 
 	url = "https://steamcommunity.com/id/ByDexterTR/"
 };
 
 public void OnPluginStart()
 {
-	ConVar_Regen_armor = CreateConVar("sm_armorregen", "5", "Bölgede bulunan oyunculara kaç can verilsin");
-	ConVar_Regen_Timer = CreateConVar("sm_timeregen", "1.0", "Bölgede bulunan oyunculara kaç saniyede can verilsin");
-	ConVar_Regen_Maxarmor = CreateConVar("sm_maxarmor", "100", "Bölgede bulunan oyunculara kaç versin");
-	ConVar_Regen_Helmet = CreateConVar("sm_regen_helmet", "1", "Bölgede bulunan oyunculara kask verilsin");
-	AutoExecConfig(true, "DevZones-armorRegen", "ByDexter");
-}
-
-public void OnClientDisconnect(int client)
-{
-	if (Handle_armorRegenC_T[client] != INVALID_HANDLE)
-	{
-		KillTimer(Handle_armorRegenC_T[client]);
-		Handle_armorRegenC_T[client] = INVALID_HANDLE;
-	}
+	RegenArmor = CreateConVar("sm_armorregen_armor", "5", "Bölgede bulunan oyunculara kaç ZIRH verilsin?\nHow many ARMOR should be given to players in the zone?");
+	RegenTime = CreateConVar("sm_armorregen_time", "1.0", "Bölgede bulunan oyunculara kaç saniyede ZIRH verilsin?\nHow many seconds should ARMOR be given to players in the zone?");
+	RegenMaxArmor = CreateConVar("sm_armorregen_maxarmor", "100", "Bölgedeki insanların maksimum ZIRH ne olacak?\nWhat ARMOR will the people in the zone have the maximum?");
+	AutoExecConfig(true, "DevZones-HpRegen", "ByDexter");
 }
 
 public void Zone_OnClientEntry(int client, const char[] zone)
 {
-	if(client < 1 || client > MaxClients || !IsClientInGame(client) ||!IsPlayerAlive(client)) 
-		return;
-		
-	if(StrContains(zone, "armorregen", false) == 0)
+	if (IsValidClient(client) && StrContains(zone, "armorregen", false) != -1 && GetClientHealth(client) < RegenMaxArmor.IntValue)
 	{
-		Handle_armorRegenC_T[client] = CreateTimer(ConVar_Regen_Timer.FloatValue, Timer_Regen, client, TIMER_REPEAT);
+		CreateTimer(RegenTime.FloatValue, Timer_RegenARMOR, client, TIMER_REPEAT | TIMER_FLAG_NO_MAPCHANGE);
 	}
 }
 
-public void Zone_OnClientLeave(int client, const char[] zone)
+public Action Timer_RegenARMOR(Handle timer, any client)
 {
-	if(client < 1 || client > MaxClients || !IsClientInGame(client) ||!IsPlayerAlive(client)) 
-		return;
-		
-	if(StrContains(zone, "armorregen", false) == 0)
+	if (!IsValidClient(client))
 	{
-		if (Handle_armorRegenC_T[client] != INVALID_HANDLE)
-		{
-			KillTimer(Handle_armorRegenC_T[client]);
-			Handle_armorRegenC_T[client] = INVALID_HANDLE;
-		}
-		if (GetClientArmor(client) > ConVar_Regen_Maxarmor.IntValue)
-		{
-			SetEntProp(client, Prop_Send, "m_ArmorValue", ConVar_Regen_armor.IntValue, 1);
-		}
-	}
-}
-
-public Action Timer_Regen(Handle timer, any client)
-{
-	if (GetClientArmor(client) > ConVar_Regen_Maxarmor.IntValue)
-	{
-		SetEntProp(client, Prop_Send, "m_ArmorValue", ConVar_Regen_armor.IntValue, 1);
 		return Plugin_Stop;
 	}
-	int armor = GetClientArmor(client);
-	SetEntProp(client, Prop_Send, "m_ArmorValue", armor + ConVar_Regen_armor.IntValue, 1);
-	if(ConVar_Regen_Helmet.IntValue == 1)
+	if (GetClientArmor(client) > RegenMaxArmor.IntValue)
 	{
-		SetEntProp(client, Prop_Send, "m_bHasHelmet", 1);
+		SetClientArmor(client, RegenMaxArmor.IntValue);
+		return Plugin_Stop;
 	}
+	SetClientArmor(client, GetClientArmor(client) + RegenArmor.IntValue);
 	return Plugin_Continue;
 }
+
+void SetClientArmor(int client, int amount)
+{
+	if (IsValidClient(client))
+	{
+		if (amount < 0)
+			SetEntProp(client, Prop_Data, "m_ArmorValue", -amount, 4);
+		else
+			SetEntProp(client, Prop_Data, "m_ArmorValue", amount, 4);
+	}
+}
+
+bool IsValidClient(int client, bool nobots = true)
+{
+	if (client <= 0 || client > MaxClients || !IsClientConnected(client) || (nobots && IsFakeClient(client)))
+	{
+		return false;
+	}
+	return IsClientInGame(client);
+} 
